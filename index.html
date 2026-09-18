@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Pré-análise de sanções</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --tinta:#1B2733; --tinta-2:#4A5866; --tinta-3:#7B8794;
+  --fundo:#E9EDF1; --papel:#FFFFFF; --linha:#D3DAE1;
+  --marinho:#1F3A5F; --marinho-claro:#E4EBF3;
+  --verde:#1D7A4A; --verde-f:#E3F2EA;
+  --amarelo:#B7791F; --amarelo-f:#FBF1DE;
+  --vermelho:#B42318; --vermelho-f:#FBE7E5;
+  --raio:6px;
+  font-family:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size:15px; color:var(--tinta); background:var(--fundo);
+  font-variant-numeric:tabular-nums;
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--marinho);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* topo */
+.topo{background:var(--marinho);color:#fff;padding:0 24px;display:flex;align-items:center;gap:28px;min-height:56px;flex-wrap:wrap}
+.marca{font-weight:700;font-size:16px;letter-spacing:.01em;display:flex;align-items:center;gap:10px}
+.marca .luzes{display:flex;gap:3px}
+.marca .luzes i{width:8px;height:8px;border-radius:50%;display:block}
+nav.abas{display:flex;gap:4px;flex:1;flex-wrap:wrap}
+nav.abas button{background:none;border:0;color:#C9D5E3;padding:18px 12px 15px;cursor:pointer;border-bottom:3px solid transparent;font-weight:500}
+nav.abas button[aria-current="page"]{color:#fff;border-bottom-color:#fff}
+nav.abas .contador{background:var(--vermelho);color:#fff;border-radius:10px;padding:1px 7px;font-size:12px;margin-left:6px}
+.usuario{font-size:13px;color:#C9D5E3;display:flex;gap:12px;align-items:center}
+.usuario button{background:none;border:1px solid #6B84A3;color:#fff;border-radius:var(--raio);padding:5px 10px;cursor:pointer}
+
+.frescor{background:var(--papel);border-bottom:1px solid var(--linha);padding:8px 24px;font-size:13px;color:var(--tinta-2);display:flex;gap:18px;flex-wrap:wrap}
+.frescor b{font-weight:600;color:var(--tinta)}
+.frescor .velho{color:var(--vermelho);font-weight:600}
+
+main{max-width:1320px;margin:0 auto;padding:24px}
+h1{font-size:22px;margin:0 0 4px;font-weight:700}
+h2{font-size:17px;margin:0 0 12px;font-weight:600}
+.sub{color:var(--tinta-2);margin:0 0 20px;max-width:70ch}
+
+.painel{background:var(--papel);border:1px solid var(--linha);border-radius:var(--raio);padding:20px}
+.grade-analise{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:24px;align-items:start}
+@media (max-width:1000px){.grade-analise{grid-template-columns:1fr}}
+
+label{display:block;font-size:13px;font-weight:600;color:var(--tinta-2);margin-bottom:4px}
+input,select,textarea{width:100%;border:1px solid var(--linha);border-radius:var(--raio);padding:8px 10px;background:#fff}
+textarea{min-height:64px;resize:vertical}
+.linha-campos{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:14px}
+
+.parte{border:1px solid var(--linha);border-radius:var(--raio);padding:12px;margin-bottom:10px;background:#FAFBFC}
+.parte-topo{display:grid;grid-template-columns:160px 1fr auto;gap:8px;align-items:end;margin-bottom:8px}
+.parte-mais{display:grid;grid-template-columns:110px 70px 1fr;gap:8px}
+.parte-mais .largo{grid-column:1/-1}
+@media (max-width:560px){.parte-topo,.parte-mais{grid-template-columns:1fr}}
+.remover{background:none;border:0;color:var(--tinta-3);cursor:pointer;padding:8px;font-size:18px;line-height:1}
+.remover:hover{color:var(--vermelho)}
+
+.botoes{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.btn{border-radius:var(--raio);padding:9px 16px;font-weight:600;cursor:pointer;border:1px solid var(--marinho);background:#fff;color:var(--marinho)}
+.btn.primario{background:var(--marinho);color:#fff}
+.btn.perigo{border-color:var(--vermelho);color:var(--vermelho)}
+.btn.pequeno{padding:5px 10px;font-size:13px;font-weight:500}
+.btn:disabled{opacity:.5;cursor:wait}
+
+/* resultado */
+.vazio{color:var(--tinta-3);padding:40px 12px;text-align:center}
+.veredito{border-radius:var(--raio);padding:18px 20px;display:flex;gap:18px;align-items:center;margin-bottom:16px;border:1px solid}
+.veredito .semaforo{display:flex;flex-direction:column;gap:5px;background:#1B2733;padding:7px;border-radius:14px}
+.veredito .semaforo i{width:16px;height:16px;border-radius:50%;background:#3A4652;display:block}
+.veredito.VERMELHO{background:var(--vermelho-f);border-color:var(--vermelho)}
+.veredito.AMARELO{background:var(--amarelo-f);border-color:var(--amarelo)}
+.veredito.VERDE{background:var(--verde-f);border-color:var(--verde)}
+.veredito.VERMELHO .semaforo i:nth-child(1){background:#F04438;box-shadow:0 0 10px #F04438}
+.veredito.AMARELO .semaforo i:nth-child(2){background:#FDB022;box-shadow:0 0 10px #FDB022}
+.veredito.VERDE .semaforo i:nth-child(3){background:#32D583;box-shadow:0 0 10px #32D583}
+.veredito strong{font-size:24px;display:block;line-height:1.1}
+.veredito span{color:var(--tinta-2);font-size:14px}
+
+ul.motivos{list-style:none;margin:0;padding:0}
+ul.motivos li{padding:6px 0 6px 20px;position:relative;line-height:1.45;font-size:14px}
+ul.motivos li::before{content:"";position:absolute;left:2px;top:12px;width:9px;height:9px;border-radius:50%}
+ul.motivos li.VERMELHO::before{background:var(--vermelho)}
+ul.motivos li.AMARELO::before{background:var(--amarelo)}
+ul.motivos li.INFO::before{background:var(--tinta-3)}
+
+.res-parte{border:1px solid var(--linha);border-left:6px solid;border-radius:var(--raio);padding:12px 14px;margin-top:10px;background:#fff}
+.res-parte.VERMELHO{border-left-color:var(--vermelho)}
+.res-parte.AMARELO{border-left-color:var(--amarelo)}
+.res-parte.VERDE{border-left-color:var(--verde)}
+.res-cab{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+.res-cab .nome{font-weight:600}
+.res-cab .papel{color:var(--tinta-3);font-size:13px;margin-left:6px}
+.selo{font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.selo.VERMELHO,.selo.NEGADA{background:var(--vermelho-f);color:var(--vermelho)}
+.selo.AMARELO,.selo.PENDENTE{background:var(--amarelo-f);color:var(--amarelo)}
+.selo.VERDE,.selo.APROVADA{background:var(--verde-f);color:var(--verde)}
+.selo.VENCIDA{background:var(--amarelo-f);color:var(--amarelo)}
+details{margin-top:6px}
+summary{cursor:pointer;color:var(--marinho);font-size:13px;font-weight:600}
+
+.tabela-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--linha);vertical-align:top}
+th{font-size:12px;color:var(--tinta-2);font-weight:600;background:#F5F7F9}
+tr.clicavel{cursor:pointer}
+tr.clicavel:hover td{background:#F7F9FB}
+
+.barra-filtro{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.barra-filtro input,.barra-filtro select{width:auto;min-width:200px}
+
+.alerta{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--linha)}
+.alerta.lido{opacity:.55}
+.alerta .tipo{font-size:12px;font-weight:700;min-width:130px;color:var(--tinta-2)}
+.alerta .tipo.NOVO_HIT,.alerta .tipo.FALHA_CARGA{color:var(--vermelho)}
+.alerta .tipo.VALIDACAO_VENCIDA{color:var(--amarelo)}
+.alerta .corpo{flex:1}
+.alerta time{font-size:12px;color:var(--tinta-3)}
+
+/* modal */
+dialog{border:0;border-radius:var(--raio);padding:0;width:min(720px,94vw);box-shadow:0 20px 60px rgba(27,39,51,.35)}
+dialog::backdrop{background:rgba(27,39,51,.45)}
+dialog .cab{padding:16px 20px;border-bottom:1px solid var(--linha);display:flex;justify-content:space-between;align-items:center}
+dialog .corpo{padding:20px;max-height:70vh;overflow:auto}
+dialog .rodape{padding:14px 20px;border-top:1px solid var(--linha);display:flex;justify-content:flex-end;gap:10px}
+.checks{display:flex;flex-wrap:wrap;gap:6px 14px}
+.checks label{display:flex;gap:6px;align-items:center;font-weight:400;color:var(--tinta);margin:0}
+.checks input{width:auto}
+
+/* login */
+.login{max-width:380px;margin:12vh auto;background:var(--papel);border:1px solid var(--linha);border-radius:var(--raio);padding:28px}
+.login h1{margin-bottom:6px}
+.login .campo{margin-bottom:14px}
+.msg{padding:10px 12px;border-radius:var(--raio);font-size:14px;margin-bottom:14px}
+.msg.erro{background:var(--vermelho-f);color:var(--vermelho)}
+.msg.ok{background:var(--verde-f);color:var(--verde)}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--tinta);color:#fff;padding:10px 18px;border-radius:var(--raio);font-size:14px;z-index:50}
+@media (prefers-reduced-motion:no-preference){.veredito{animation:entra .25s ease-out}@keyframes entra{from{opacity:0;transform:translateY(4px)}}}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="tela-login" hidden>
+  <form class="login" id="form-login">
+    <h1>Pré-análise de sanções</h1>
+    <p class="sub">Acesso restrito a usuários convidados.</p>
+    <div id="login-msg"></div>
+    <div class="campo"><label for="login-email">E-mail</label><input id="login-email" type="email" autocomplete="username" required></div>
+    <div class="campo" id="campo-senha"><label for="login-senha">Senha</label><input id="login-senha" type="password" autocomplete="current-password" required></div>
+    <button class="btn primario" type="submit" id="btn-entrar">Entrar</button>
+    <button class="btn" type="button" id="btn-esqueci" style="margin-left:6px">Esqueci a senha</button>
+  </form>
+</section>
+
+<section id="tela-senha" hidden>
+  <form class="login" id="form-senha">
+    <h1>Defina sua senha</h1>
+    <p class="sub">Mínimo de 10 caracteres.</p>
+    <div id="senha-msg"></div>
+    <div class="campo"><label for="nova-senha">Nova senha</label><input id="nova-senha" type="password" minlength="10" autocomplete="new-password" required></div>
+    <button class="btn primario" type="submit">Salvar senha</button>
+  </form>
+</section>
+
+<section id="tela-negado" hidden>
+  <div class="login">
+    <h1>Acesso não liberado</h1>
+    <p class="sub">Seu login funcionou, mas este e-mail não está na lista de usuários autorizados. Peça para incluí-lo em <code>usuarios_autorizados</code>.</p>
+    <button class="btn" id="btn-sair-negado">Sair</button>
+  </div>
+</section>
+
+<!-- ============ APP ============ -->
+<div id="app" hidden>
+  <header class="topo">
+    <div class="marca"><span class="luzes"><i style="background:#F04438"></i><i style="background:#FDB022"></i><i style="background:#32D583"></i></span>Pré-análise de sanções</div>
+    <nav class="abas" aria-label="Seções">
+      <button data-aba="analise" aria-current="page">Nova análise</button>
+      <button data-aba="cadastro">Cadastro</button>
+      <button data-aba="alertas">Alertas<span class="contador" id="cont-alertas" hidden></span></button>
+      <button data-aba="historico">Histórico</button>
+    </nav>
+    <div class="usuario"><span id="usuario-email"></span><button id="btn-sair">Sair</button></div>
+  </header>
+  <div class="frescor" id="frescor">Carregando situação das listas…</div>
+
+  <main>
+    <!-- NOVA ANÁLISE -->
+    <section data-painel="analise">
+      <h1>Nova análise</h1>
+      <p class="sub">Informe só as partes no exterior. Não coloque o cliente brasileiro nem valores.</p>
+      <div class="grade-analise">
+        <form class="painel" id="form-analise">
+          <h2>Operação</h2>
+          <div class="linha-campos">
+            <div><label for="op-ref">Referência interna</label><input id="op-ref" placeholder="ex.: Navio Eldia set/26"></div>
+            <div><label for="op-origem">Origem da mercadoria</label><input id="op-origem" list="lista-paises" maxlength="2" placeholder="RU" style="text-transform:uppercase"></div>
+            <div><label for="op-ncm">NCM</label><input id="op-ncm" placeholder="2710.12.59"></div>
+            <div><label for="op-moeda">Moeda de liquidação</label><input id="op-moeda" list="lista-moedas" maxlength="3" placeholder="AED" style="text-transform:uppercase"></div>
+          </div>
+          <h2>Partes</h2>
+          <div id="partes"></div>
+          <div class="botoes">
+            <button class="btn" type="button" id="btn-add-parte">Adicionar parte</button>
+            <button class="btn" type="button" id="btn-modelo">Usar modelo de importação</button>
+          </div>
+          <div class="botoes">
+            <button class="btn primario" type="submit" id="btn-analisar">Analisar</button>
+            <button class="btn" type="button" id="btn-limpar">Limpar</button>
+          </div>
+        </form>
+        <div class="painel" id="resultado"><div class="vazio">O resultado aparece aqui.</div></div>
+      </div>
+    </section>
+
+    <!-- CADASTRO -->
+    <section data-painel="cadastro" hidden>
+      <h1>Cadastro de contrapartes e navios</h1>
+      <p class="sub">A aprovação vale pelo número de dias definido em cada registro (padrão 30). Mesmo aprovada, a parte passa por screening todo dia.</p>
+      <div class="barra-filtro">
+        <input id="filtro-cad" type="search" placeholder="Buscar por nome ou IMO">
+        <select id="filtro-status"><option value="">Todos os status</option><option>APROVADA</option><option>PENDENTE</option><option>NEGADA</option><option value="VENCIDA">Aprovação vencida</option></select>
+        <button class="btn primario" id="btn-novo-cad">Nova contraparte</button>
+      </div>
+      <div class="painel tabela-wrap"><table>
+        <thead><tr><th>Nome</th><th>Tipo</th><th>País</th><th>Status</th><th>Válida até</th><th>Último screening</th></tr></thead>
+        <tbody id="tbody-cad"></tbody>
+      </table></div>
+    </section>
+
+    <!-- ALERTAS -->
+    <section data-painel="alertas" hidden>
+      <h1>Alertas</h1>
+      <p class="sub">Gerados pela atualização diária das listas.</p>
+      <div class="barra-filtro"><button class="btn" id="btn-ler-todos">Marcar todos como lidos</button></div>
+      <div class="painel" id="lista-alertas"></div>
+    </section>
+
+    <!-- HISTÓRICO -->
+    <section data-painel="historico" hidden>
+      <h1>Histórico de análises</h1>
+      <p class="sub">Análises salvas. Clique para ver o resultado da época.</p>
+      <div class="painel tabela-wrap"><table>
+        <thead><tr><th>Data</th><th>Referência</th><th>Origem</th><th>NCM</th><th>Moeda</th><th>Partes</th><th>Resultado</th></tr></thead>
+        <tbody id="tbody-hist"></tbody>
+      </table></div>
+    </section>
+  </main>
+</div>
+
+<!-- MODAL CADASTRO -->
+<dialog id="dlg-cad">
+  <form method="dialog" id="form-cad">
+    <div class="cab"><h2 id="dlg-cad-titulo" style="margin:0">Contraparte</h2><button class="remover" value="cancel" aria-label="Fechar">×</button></div>
+    <div class="corpo">
+      <input type="hidden" id="cad-id">
+      <div class="linha-campos">
+        <div><label for="cad-tipo">Tipo</label><select id="cad-tipo"><option>EMPRESA</option><option>NAVIO</option></select></div>
+        <div style="grid-column:span 2"><label for="cad-nome">Nome</label><input id="cad-nome" required></div>
+      </div>
+      <div class="linha-campos">
+        <div><label for="cad-imo">IMO</label><input id="cad-imo" inputmode="numeric" placeholder="só navio ou companhia"></div>
+        <div><label for="cad-pais">País (ISO-2)</label><input id="cad-pais" list="lista-paises" maxlength="2" style="text-transform:uppercase"></div>
+      </div>
+      <div class="linha-campos"><div><label for="cad-aliases">Outros nomes (separe por ponto e vírgula)</label><input id="cad-aliases"></div></div>
+      <div class="linha-campos"><div><label for="cad-end">Endereço</label><input id="cad-end"></div></div>
+      <label>Papéis</label><div class="checks" id="cad-papeis" style="margin-bottom:14px"></div>
+      <div class="linha-campos">
+        <div><label for="cad-status">Status no banco</label><select id="cad-status"><option>PENDENTE</option><option>APROVADA</option><option>NEGADA</option></select></div>
+        <div><label for="cad-data">Data da validação</label><input id="cad-data" type="date"></div>
+        <div><label for="cad-dias">Validade (dias)</label><input id="cad-dias" type="number" min="1" value="30"></div>
+      </div>
+      <label>Escopo validado</label><div class="checks" id="cad-escopo" style="margin-bottom:14px"></div>
+      <div class="linha-campos"><div><label for="cad-aprov">Aprovado por</label><input id="cad-aprov"></div></div>
+      <div class="linha-campos"><div><label for="cad-ress">Ressalvas (deixa a parte amarela enquanto preenchido)</label><textarea id="cad-ress"></textarea></div></div>
+      <div class="linha-campos"><div><label for="cad-obs">Observações</label><textarea id="cad-obs"></textarea></div></div>
+      <div id="cad-screening"></div>
+    </div>
+    <div class="rodape">
+      <button class="btn perigo" type="button" id="btn-excluir-cad">Excluir</button>
+      <button class="btn" type="button" id="btn-screen-cad">Rodar screening</button>
+      <button class="btn primario" type="button" id="btn-salvar-cad">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<datalist id="lista-paises">
+  <option value="RU">Rússia</option><option value="AE">Emirados Árabes</option><option value="VE">Venezuela</option><option value="CU">Cuba</option><option value="IR">Irã</option>
+  <option value="MT">Malta</option><option value="GR">Grécia</option><option value="CY">Chipre</option><option value="IT">Itália</option><option value="GB">Reino Unido</option>
+  <option value="US">EUA</option><option value="SG">Singapura</option><option value="HK">Hong Kong</option><option value="CN">China</option><option value="IN">Índia</option>
+  <option value="TR">Turquia</option><option value="CH">Suíça</option><option value="NL">Países Baixos</option><option value="PA">Panamá</option><option value="LR">Libéria</option>
+  <option value="MH">Ilhas Marshall</option><option value="GA">Gabão</option><option value="KM">Comores</option><option value="SA">Arábia Saudita</option><option value="OM">Omã</option>
+</datalist>
+<datalist id="lista-moedas"><option>USD</option><option>AED</option><option>EUR</option><option>CNY</option><option>GBP</option><option>INR</option><option>CHF</option></datalist>
+<datalist id="lista-cadastro"></datalist>
+
+<script>
+/* =================== CONFIGURAÇÃO =================== */
+const SUPABASE_URL = "https://rcozmtmrjpaygboowket.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_IpuJIBN1VGP9nHFzJ3icbA_opqDaDAV"; // chave pública (dados protegidos por login + RLS)
+/* ==================================================== */
+
+const PAPEIS = ["SELLER","EXPORTADOR","SHIPPER","FABRICANTE","TRADER","NAVIO","OWNER","OPERADOR TÉCNICO","OPERADOR COMERCIAL","P&I","H&M","BANCO","OUTRO"];
+const ESCOPOS = ["SANCOES","UBO","PLD","MIDIA"];
+const MODELO = ["SELLER","SHIPPER","FABRICANTE","NAVIO","OWNER","OPERADOR TÉCNICO","OPERADOR COMERCIAL","P&I","H&M"];
+const COR_TXT = {VERMELHO:"Vermelho", AMARELO:"Amarelo", VERDE:"Verde"};
+const COR_DESC = {
+  VERMELHO:"Impeditivo até ser descartado ou resolvido",
+  AMARELO:"Seguir com atenção, condicionantes ou aprovação",
+  VERDE:"Sem pontos identificados nas listas e no cadastro"
+};
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const dataBR = d => d ? new Date(d.length === 10 ? d + "T12:00:00" : d).toLocaleDateString("pt-BR") : "—";
+const dataHoraBR = d => d ? new Date(d).toLocaleString("pt-BR", {dateStyle:"short", timeStyle:"short"}) : "—";
+function toast(t){ const el=document.createElement("div"); el.className="toast"; el.textContent=t; document.body.append(el); setTimeout(()=>el.remove(),3200); }
+function erro(e){ console.error(e); toast("Erro: " + (e?.message || e)); }
+
+if (SUPABASE_URL.startsWith("COLE_")) {
+  document.body.innerHTML = '<div class="login"><h1>Configuração pendente</h1><p class="sub">Preencha SUPABASE_URL e SUPABASE_ANON_KEY no topo do script do index.html.</p></div>';
+  throw new Error("configurar Supabase");
+}
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {auth:{persistSession:true, detectSessionInUrl:true}});
+
+/* =================== AUTENTICAÇÃO =================== */
+const telas = ["tela-login","tela-senha","tela-negado","app"];
+function mostra(id){ telas.forEach(t => $("#"+t).hidden = t !== id); }
+const hashTipo = new URLSearchParams(location.hash.slice(1)).get("type");
+let precisaSenha = hashTipo === "invite" || hashTipo === "recovery";
+
+sb.auth.onAuthStateChange((ev) => { if (ev === "PASSWORD_RECOVERY") { precisaSenha = true; mostra("tela-senha"); } });
+
+async function inicia(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session) return mostra("tela-login");
+  if (precisaSenha) return mostra("tela-senha");
+  const { data: ok, error } = await sb.rpc("is_autorizado");
+  if (error || !ok) return mostra("tela-negado");
+  $("#usuario-email").textContent = session.user.email;
+  mostra("app");
+  if (!$("#partes").children.length) modelo();
+  carregaFrescor(); carregaCadastroLista(); contaAlertas();
+}
+
+$("#form-login").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = $("#btn-entrar"); btn.disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email: $("#login-email").value.trim(), password: $("#login-senha").value });
+  btn.disabled = false;
+  if (error) { $("#login-msg").innerHTML = `<div class="msg erro">E-mail ou senha incorretos.</div>`; return; }
+  inicia();
+});
+$("#btn-esqueci").addEventListener("click", async () => {
+  const email = $("#login-email").value.trim();
+  if (!email) { $("#login-msg").innerHTML = `<div class="msg erro">Digite seu e-mail primeiro.</div>`; return; }
+  await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  $("#login-msg").innerHTML = `<div class="msg ok">Se o e-mail estiver cadastrado, você vai receber um link para redefinir a senha.</div>`;
+});
+$("#form-senha").addEventListener("submit", async e => {
+  e.preventDefault();
+  const { error } = await sb.auth.updateUser({ password: $("#nova-senha").value });
+  if (error) { $("#senha-msg").innerHTML = `<div class="msg erro">${esc(error.message)}</div>`; return; }
+  precisaSenha = false; history.replaceState(null, "", location.pathname); toast("Senha salva"); inicia();
+});
+const sair = async () => { await sb.auth.signOut(); location.reload(); };
+$("#btn-sair").addEventListener("click", sair);
+$("#btn-sair-negado").addEventListener("click", sair);
+
+/* =================== ABAS =================== */
+$$("nav.abas button").forEach(b => b.addEventListener("click", () => abreAba(b.dataset.aba)));
+function abreAba(aba){
+  $$("nav.abas button").forEach(b => b.dataset.aba === aba ? b.setAttribute("aria-current","page") : b.removeAttribute("aria-current"));
+  $$("[data-painel]").forEach(p => p.hidden = p.dataset.painel !== aba);
+  if (aba === "cadastro") carregaCadastro();
+  if (aba === "alertas") carregaAlertas();
+  if (aba === "historico") carregaHistorico();
+}
+
+/* =================== FRESCOR DAS LISTAS =================== */
+async function carregaFrescor(){
+  const { data, error } = await sb.from("sancoes_cargas").select("fonte,status,executado_em").order("executado_em", {ascending:false}).limit(60);
+  if (error) return $("#frescor").textContent = "Não foi possível ler a situação das listas.";
+  const ult = {};
+  for (const c of data) if (!ult[c.fonte] && (c.status === "OK" || c.status === "SEM_ALTERACAO")) ult[c.fonte] = c.executado_em;
+  const fontes = ["OFAC_SDN","OFAC_CONS","EU","UK","UN"];
+  const nomes = {OFAC_SDN:"OFAC SDN",OFAC_CONS:"OFAC não-SDN",EU:"UE",UK:"Reino Unido",UN:"ONU"};
+  $("#frescor").innerHTML = "Listas verificadas: " + fontes.map(f => {
+    const d = ult[f]; const velho = !d || (Date.now() - new Date(d)) > 36*3600e3;
+    return `<span class="${velho ? "velho" : ""}"><b>${nomes[f]}</b> ${d ? dataHoraBR(d) : "nunca"}</span>`;
+  }).join("");
+}
+
+/* =================== PARTES DO FORMULÁRIO =================== */
+function novaParte(p = {}){
+  const div = document.createElement("div");
+  div.className = "parte";
+  div.innerHTML = `
+    <div class="parte-topo">
+      <div><label>Papel</label><select data-c="papel">${PAPEIS.map(x => `<option ${x === p.papel ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+      <div><label>Nome</label><input data-c="nome" list="lista-cadastro" value="${esc(p.nome)}" placeholder="Nome como aparece no documento"></div>
+      <button type="button" class="remover" aria-label="Remover parte">×</button>
+    </div>
+    <div class="parte-mais">
+      <div><label>IMO</label><input data-c="imo" inputmode="numeric" value="${esc(p.imo)}"></div>
+      <div><label>País</label><input data-c="pais" list="lista-paises" maxlength="2" value="${esc(p.pais)}" style="text-transform:uppercase"></div>
+      <div><label>Outros nomes (;)</label><input data-c="aliases" value="${esc((p.aliases || []).join("; "))}"></div>
+      <div class="largo"><label>Endereço</label><input data-c="endereco" value="${esc(p.endereco)}"></div>
+    </div>`;
+  div.querySelector(".remover").addEventListener("click", () => div.remove());
+  const nome = div.querySelector('[data-c="nome"]');
+  nome.addEventListener("change", () => preencheDoCadastro(div, nome.value));
+  $("#partes").append(div);
+  return div;
+}
+function modelo(){ $("#partes").innerHTML = ""; MODELO.forEach(papel => novaParte({papel})); }
+$("#btn-add-parte").addEventListener("click", () => novaParte().querySelector('[data-c="nome"]').focus());
+$("#btn-modelo").addEventListener("click", () => { if (confirm("Substituir as partes atuais pelo modelo?")) modelo(); });
+$("#btn-limpar").addEventListener("click", () => { $("#form-analise").reset(); modelo(); $("#resultado").innerHTML = '<div class="vazio">O resultado aparece aqui.</div>'; });
+
+let cadastroCache = [];
+async function carregaCadastroLista(){
+  const { data } = await sb.from("contrapartes").select("id,nome,tipo,imo,pais,endereco,papeis,status_banco").order("nome");
+  cadastroCache = data || [];
+  $("#lista-cadastro").innerHTML = cadastroCache.map(c => `<option value="${esc(c.nome)}">${esc(c.status_banco)}${c.imo ? " · IMO " + esc(c.imo) : ""}</option>`).join("");
+}
+function preencheDoCadastro(div, nome){
+  const c = cadastroCache.find(x => x.nome.toLowerCase() === nome.trim().toLowerCase());
+  if (!c) return;
+  const set = (k, v) => { const el = div.querySelector(`[data-c="${k}"]`); if (el && !el.value && v) el.value = v; };
+  set("imo", c.imo); set("pais", c.pais); set("endereco", c.endereco);
+}
+
+function coletaAnalise(){
+  const partes = $$("#partes .parte").map(div => {
+    const g = k => div.querySelector(`[data-c="${k}"]`).value.trim();
+    return { papel: g("papel"), nome: g("nome"), imo: g("imo") || null, pais: g("pais").toUpperCase() || null,
+             endereco: g("endereco") || null, aliases: g("aliases").split(";").map(s => s.trim()).filter(Boolean) };
+  }).filter(p => p.nome || p.imo);
+  return { origem: $("#op-origem").value.trim().toUpperCase() || null, ncm: $("#op-ncm").value.trim() || null,
+           moeda: $("#op-moeda").value.trim().toUpperCase() || null, partes };
+}
+
+/* =================== ANALISAR =================== */
+let ultimaEntrada = null, ultimoResultado = null;
+$("#form-analise").addEventListener("submit", async e => {
+  e.preventDefault();
+  const entrada = coletaAnalise();
+  if (!entrada.partes.length) return toast("Preencha pelo menos uma parte com nome ou IMO");
+  const btn = $("#btn-analisar"); btn.disabled = true; btn.textContent = "Analisando…";
+  const { data, error } = await sb.rpc("avaliar_analise", { p: entrada });
+  btn.disabled = false; btn.textContent = "Analisar";
+  if (error) return erro(error);
+  ultimaEntrada = entrada; ultimoResultado = data;
+  renderResultado($("#resultado"), data, {salvar:true});
+});
+
+function renderResultado(alvo, r, {salvar=false, referencia=null} = {}){
+  const partes = r.partes || [];
+  const cont = c => partes.filter(p => p.cor === c).length;
+  alvo.innerHTML = `
+    <div class="veredito ${r.cor_final}" role="status">
+      <div class="semaforo" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div><strong>${COR_TXT[r.cor_final]}</strong><span>${COR_DESC[r.cor_final]}<br>
+        ${partes.length} parte(s): ${cont("VERMELHO")} vermelha(s), ${cont("AMARELO")} amarela(s), ${cont("VERDE")} verde(s)</span></div>
+    </div>
+    ${(r.operacao || []).length ? `<h2>Operação</h2><ul class="motivos">${r.operacao.map(m => `<li class="${m.nivel}">${esc(m.texto)}</li>`).join("")}</ul>` : ""}
+    <h2 style="margin-top:18px">Partes</h2>
+    ${partes.map((p, i) => `
+      <div class="res-parte ${p.cor}">
+        <div class="res-cab"><div><span class="nome">${esc(p.nome || "IMO " + p.imo)}</span><span class="papel">${esc(p.papel || "")}${p.pais ? " · " + esc(p.pais) : ""}${p.imo ? " · IMO " + esc(p.imo) : ""}</span></div>
+          <span class="selo ${p.cor}">${COR_TXT[p.cor]}</span></div>
+        <ul class="motivos">${(p.motivos || []).map(m => `<li class="${m.nivel}">${esc(m.texto)}</li>`).join("")}</ul>
+        ${p.hits?.length ? `<details><summary>${p.hits.length} ocorrência(s) nas listas</summary><div class="tabela-wrap"><table>
+          <thead><tr><th>Lista</th><th>Nome na lista</th><th>Tipo de match</th><th>Score</th><th>Programa</th></tr></thead>
+          <tbody>${p.hits.map(h => `<tr><td>${esc(h.fonte)}</td><td>${esc(h.nome_lista)}<br><small>${esc(h.termo)}</small></td><td>${esc(h.match)}</td><td>${esc(h.score)}</td><td>${esc(h.programas)}</td></tr>`).join("")}</tbody></table></div></details>` : ""}
+        ${!p.contraparte && salvar ? `<div class="botoes" style="margin-top:6px"><button class="btn pequeno" data-cadastrar="${i}">Cadastrar esta parte</button></div>` : ""}
+      </div>`).join("")}
+    <div class="botoes">
+      ${salvar ? `<button class="btn primario" id="btn-salvar-analise">Salvar no histórico</button>` : ""}
+      <button class="btn" id="btn-copiar">Copiar resumo</button>
+    </div>
+    <p style="font-size:12px;color:var(--tinta-3);margin-top:12px">Avaliado em ${dataHoraBR(r.avaliado_em)}. Pré-análise, não substitui o parecer do Compliance.</p>`;
+  alvo.querySelector("#btn-copiar").addEventListener("click", () => {
+    navigator.clipboard.writeText(resumoTexto(r, referencia ?? $("#op-ref").value)).then(() => toast("Resumo copiado"));
+  });
+  if (salvar) {
+    alvo.querySelector("#btn-salvar-analise").addEventListener("click", async ev => {
+      ev.target.disabled = true;
+      const { error } = await sb.rpc("registrar_analise", { p: ultimaEntrada, p_referencia: $("#op-ref").value.trim() || null });
+      if (error) { ev.target.disabled = false; return erro(error); }
+      ev.target.textContent = "Salvo no histórico"; toast("Análise salva no histórico");
+    });
+    alvo.querySelectorAll("[data-cadastrar]").forEach(b => b.addEventListener("click", () => {
+      const p = ultimaEntrada.partes[+b.dataset.cadastrar];
+      abreCadastro(null, { tipo: p.papel === "NAVIO" ? "NAVIO" : "EMPRESA", nome: p.nome, imo: p.imo, pais: p.pais,
+                          endereco: p.endereco, aliases: p.aliases, papeis: [p.papel], status_banco: "PENDENTE" });
+    }));
+  }
+}
+
+function resumoTexto(r, ref){
+  const l = [];
+  l.push(`PRÉ-ANÁLISE DE SANÇÕES${ref ? " — " + ref : ""}`);
+  l.push(`Resultado: ${COR_TXT[r.cor_final].toUpperCase()} (${dataHoraBR(r.avaliado_em)})`, "");
+  if ((r.operacao || []).length) { l.push("Operação:"); r.operacao.forEach(m => l.push(`  [${m.nivel}] ${m.texto}`)); l.push(""); }
+  l.push("Partes:");
+  (r.partes || []).forEach(p => {
+    l.push(`- ${p.papel || "-"}: ${p.nome || ""}${p.pais ? " (" + p.pais + ")" : ""}${p.imo ? " IMO " + p.imo : ""} → ${COR_TXT[p.cor].toUpperCase()}`);
+    (p.motivos || []).filter(m => m.nivel !== "INFO").forEach(m => l.push(`    • ${m.texto}`));
+  });
+  l.push("", "Pré-análise automática. Não substitui o parecer do Compliance.");
+  return l.join("\n");
+}
+
+/* =================== CADASTRO =================== */
+let cadastroFull = [];
+async function carregaCadastro(){
+  const { data, error } = await sb.from("contrapartes").select("*").order("nome");
+  if (error) return erro(error);
+  cadastroFull = data; renderCadastro();
+}
+const vencimento = c => c.data_validacao ? new Date(new Date(c.data_validacao + "T12:00:00").getTime() + c.validade_dias * 864e5) : null;
+const statusEfetivo = c => c.status_banco === "APROVADA" && (!vencimento(c) || vencimento(c) < new Date()) ? "VENCIDA" : c.status_banco;
+function renderCadastro(){
+  const q = $("#filtro-cad").value.trim().toLowerCase(), st = $("#filtro-status").value;
+  const linhas = cadastroFull.filter(c => (!q || c.nome.toLowerCase().includes(q) || (c.imo || "").includes(q) || (c.aliases || []).some(a => a.toLowerCase().includes(q)))
+                                        && (!st || statusEfetivo(c) === st));
+  $("#tbody-cad").innerHTML = linhas.length ? linhas.map(c => {
+    const se = statusEfetivo(c), v = vencimento(c);
+    return `<tr class="clicavel" data-id="${c.id}">
+      <td><b>${esc(c.nome)}</b>${c.imo ? `<br><small>IMO ${esc(c.imo)}</small>` : ""}${c.ressalvas ? `<br><small style="color:var(--amarelo)">Com ressalva</small>` : ""}</td>
+      <td>${esc(c.tipo)}<br><small>${esc((c.papeis || []).join(", "))}</small></td>
+      <td>${esc(c.pais || "—")}</td>
+      <td><span class="selo ${se}">${se === "VENCIDA" ? "Vencida" : esc(c.status_banco)}</span></td>
+      <td>${v && c.status_banco === "APROVADA" ? v.toLocaleDateString("pt-BR") : "—"}</td>
+      <td>${c.ultima_cor ? `<span class="selo ${c.ultima_cor}">${COR_TXT[c.ultima_cor]}</span><br><small>${dataHoraBR(c.ultimo_screening)}</small>` : "—"}</td></tr>`;
+  }).join("") : `<tr><td colspan="6" class="vazio">Nenhuma contraparte${q || st ? " com esse filtro" : ". Cadastre as partes que o banco já validou"}.</td></tr>`;
+  $$("#tbody-cad tr[data-id]").forEach(tr => tr.addEventListener("click", () => abreCadastro(cadastroFull.find(c => c.id === tr.dataset.id))));
+}
+$("#filtro-cad").addEventListener("input", renderCadastro);
+$("#filtro-status").addEventListener("change", renderCadastro);
+$("#btn-novo-cad").addEventListener("click", () => abreCadastro(null));
+
+$("#cad-papeis").innerHTML = PAPEIS.map(p => `<label><input type="checkbox" value="${p}">${p}</label>`).join("");
+$("#cad-escopo").innerHTML = ESCOPOS.map(p => `<label><input type="checkbox" value="${p}">${p}</label>`).join("");
+
+function abreCadastro(c, pre = null){
+  const d = c || pre || {};
+  $("#dlg-cad-titulo").textContent = c ? "Editar contraparte" : "Nova contraparte";
+  $("#cad-id").value = c?.id || "";
+  $("#cad-tipo").value = d.tipo || "EMPRESA";
+  $("#cad-nome").value = d.nome || "";
+  $("#cad-imo").value = d.imo || "";
+  $("#cad-pais").value = d.pais || "";
+  $("#cad-aliases").value = (d.aliases || []).join("; ");
+  $("#cad-end").value = d.endereco || "";
+  $$("#cad-papeis input").forEach(i => i.checked = (d.papeis || []).includes(i.value));
+  $$("#cad-escopo input").forEach(i => i.checked = (d.escopo_validacao || []).includes(i.value));
+  $("#cad-status").value = d.status_banco || "PENDENTE";
+  $("#cad-data").value = d.data_validacao || "";
+  $("#cad-dias").value = d.validade_dias || 30;
+  $("#cad-aprov").value = d.aprovado_por || "";
+  $("#cad-ress").value = d.ressalvas || "";
+  $("#cad-obs").value = d.observacoes || "";
+  $("#btn-excluir-cad").hidden = !c;
+  $("#btn-screen-cad").hidden = !c;
+  $("#cad-screening").innerHTML = c?.ultimo_resultado ? '<h2 style="margin-top:8px">Último screening</h2>' + miniResultado(c.ultimo_resultado) : "";
+  $("#dlg-cad").showModal();
+}
+function miniResultado(p){
+  return `<div class="res-parte ${p.cor}"><div class="res-cab"><span class="nome">${esc(p.nome)}</span><span class="selo ${p.cor}">${COR_TXT[p.cor]}</span></div>
+    <ul class="motivos">${(p.motivos || []).map(m => `<li class="${m.nivel}">${esc(m.texto)}</li>`).join("")}</ul></div>`;
+}
+$("#btn-salvar-cad").addEventListener("click", async () => {
+  const nome = $("#cad-nome").value.trim();
+  if (!nome) return toast("Informe o nome");
+  const status = $("#cad-status").value, dataVal = $("#cad-data").value || null;
+  if (status === "APROVADA" && !dataVal) return toast("Aprovada exige a data da validação");
+  const reg = {
+    tipo: $("#cad-tipo").value, nome,
+    imo: $("#cad-imo").value.replace(/\D/g, "") || null,
+    pais: $("#cad-pais").value.trim().toUpperCase() || null,
+    aliases: $("#cad-aliases").value.split(";").map(s => s.trim()).filter(Boolean),
+    endereco: $("#cad-end").value.trim() || null,
+    papeis: $$("#cad-papeis input:checked").map(i => i.value),
+    escopo_validacao: $$("#cad-escopo input:checked").map(i => i.value),
+    status_banco: status, data_validacao: dataVal,
+    validade_dias: +$("#cad-dias").value || 30,
+    aprovado_por: $("#cad-aprov").value.trim() || null,
+    ressalvas: $("#cad-ress").value.trim() || null,
+    observacoes: $("#cad-obs").value.trim() || null
+  };
+  const id = $("#cad-id").value;
+  const { error } = id ? await sb.from("contrapartes").update(reg).eq("id", id) : await sb.from("contrapartes").insert(reg);
+  if (error) return erro(error.code === "23505" ? "Já existe uma contraparte com esse IMO" : error);
+  $("#dlg-cad").close(); toast("Contraparte salva");
+  carregaCadastro(); carregaCadastroLista();
+});
+$("#btn-excluir-cad").addEventListener("click", async () => {
+  if (!confirm("Excluir esta contraparte do cadastro? Os alertas dela também serão apagados.")) return;
+  const { error } = await sb.from("contrapartes").delete().eq("id", $("#cad-id").value);
+  if (error) return erro(error);
+  $("#dlg-cad").close(); toast("Contraparte excluída"); carregaCadastro(); carregaCadastroLista();
+});
+$("#btn-screen-cad").addEventListener("click", async () => {
+  const { data, error } = await sb.rpc("avaliar_parte", { p: { contraparte_id: $("#cad-id").value } });
+  if (error) return erro(error);
+  $("#cad-screening").innerHTML = '<h2 style="margin-top:8px">Screening agora</h2>' + miniResultado(data);
+});
+
+/* =================== ALERTAS =================== */
+async function contaAlertas(){
+  const { count } = await sb.from("alertas").select("id", {count:"exact", head:true}).eq("lido", false);
+  const el = $("#cont-alertas"); el.hidden = !count; el.textContent = count || "";
+}
+async function carregaAlertas(){
+  const { data, error } = await sb.from("alertas").select("*, contrapartes(nome)").order("lido").order("criado_em", {ascending:false}).limit(200);
+  if (error) return erro(error);
+  const nomes = {NOVO_HIT:"Novo hit", HIT_REMOVIDO:"Hit removido", VALIDACAO_VENCIDA:"Aprovação vencida", FALHA_CARGA:"Falha na lista"};
+  $("#lista-alertas").innerHTML = data.length ? data.map(a => `
+    <div class="alerta ${a.lido ? "lido" : ""}">
+      <div class="tipo ${a.tipo}">${nomes[a.tipo] || esc(a.tipo)}<br><time>${dataHoraBR(a.criado_em)}</time></div>
+      <div class="corpo">${esc(a.descricao)}
+        ${a.detalhes?.novos ? `<br><small>${esc(a.detalhes.novos.join(" · "))}</small>` : ""}
+        ${a.detalhes?.erro ? `<br><small>${esc(a.detalhes.erro)}</small>` : ""}</div>
+      ${a.lido ? "" : `<button class="btn pequeno" data-ler="${a.id}">Marcar como lido</button>`}
+    </div>`).join("") : '<div class="vazio">Nenhum alerta.</div>';
+  $$("[data-ler]").forEach(b => b.addEventListener("click", async () => {
+    await sb.from("alertas").update({lido:true}).eq("id", b.dataset.ler); carregaAlertas(); contaAlertas();
+  }));
+}
+$("#btn-ler-todos").addEventListener("click", async () => {
+  await sb.from("alertas").update({lido:true}).eq("lido", false); carregaAlertas(); contaAlertas();
+});
+
+/* =================== HISTÓRICO =================== */
+async function carregaHistorico(){
+  const { data, error } = await sb.from("analises").select("*").order("criado_em", {ascending:false}).limit(200);
+  if (error) return erro(error);
+  $("#tbody-hist").innerHTML = data.length ? data.map(a => `<tr class="clicavel" data-id="${a.id}">
+    <td>${dataHoraBR(a.criado_em)}</td><td>${esc(a.referencia || "—")}</td><td>${esc(a.origem_mercadoria || "—")}</td>
+    <td>${esc(a.ncm || "—")}</td><td>${esc(a.moeda || "—")}</td><td>${(a.entrada.partes || []).length}</td>
+    <td><span class="selo ${a.cor_final}">${COR_TXT[a.cor_final]}</span></td></tr>`).join("")
+    : '<tr><td colspan="7" class="vazio">Nenhuma análise salva ainda.</td></tr>';
+  $$("#tbody-hist tr[data-id]").forEach(tr => tr.addEventListener("click", () => {
+    const a = data.find(x => x.id === tr.dataset.id);
+    abreAba("analise");
+    $("#op-ref").value = a.referencia || ""; $("#op-origem").value = a.origem_mercadoria || "";
+    $("#op-ncm").value = a.ncm || ""; $("#op-moeda").value = a.moeda || "";
+    $("#partes").innerHTML = ""; (a.entrada.partes || []).forEach(p => novaParte(p));
+    ultimaEntrada = a.entrada;
+    renderResultado($("#resultado"), a.resultado, {referencia: a.referencia});
+    $("#resultado").insertAdjacentHTML("afterbegin", `<div class="msg ok">Resultado salvo em ${dataHoraBR(a.criado_em)}. Clique em Analisar para rodar de novo com as listas de hoje.</div>`);
+  }));
+}
+
+inicia();
+</script>
+</body>
+</html>
