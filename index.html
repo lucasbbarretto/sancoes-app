@@ -57,11 +57,13 @@ input,select,textarea{width:100%;border:1px solid var(--linha);border-radius:var
 textarea{min-height:64px;resize:vertical}
 .linha-campos{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:14px}
 
-.parte{border:1px solid var(--linha);border-radius:var(--raio);padding:12px;margin-bottom:10px;background:#FAFBFC}
-.parte-topo{display:grid;grid-template-columns:160px 1fr auto;gap:8px;align-items:end;margin-bottom:8px}
-.parte-mais{display:grid;grid-template-columns:110px 70px 1fr;gap:8px}
-.parte-mais .largo{grid-column:1/-1}
-@media (max-width:560px){.parte-topo,.parte-mais{grid-template-columns:1fr}}
+.parte{border:1px solid var(--linha);border-radius:var(--raio);padding:10px 14px 4px;margin:0 0 12px;background:#FAFBFC;min-width:0}
+.parte legend{font-weight:700;font-size:14px;color:var(--marinho);padding:0 6px}
+.campos{display:grid;gap:10px;grid-template-columns:1fr;margin-bottom:10px}
+.campos.nome-pais{grid-template-columns:1fr 90px}
+.campos.navio{grid-template-columns:1fr 130px 90px}
+[data-c="pais"]{text-transform:uppercase}
+@media (max-width:560px){.campos.nome-pais,.campos.navio{grid-template-columns:1fr}}
 .remover{background:none;border:0;color:var(--tinta-3);cursor:pointer;padding:8px;font-size:18px;line-height:1}
 .remover:hover{color:var(--vermelho)}
 
@@ -210,10 +212,37 @@ dialog .rodape{padding:14px 20px;border-top:1px solid var(--linha);display:flex;
             <div><label for="op-moeda">Moeda de liquidação</label><input id="op-moeda" list="lista-moedas" maxlength="3" placeholder="AED" style="text-transform:uppercase"></div>
           </div>
           <h2>Partes</h2>
-          <div id="partes"></div>
-          <div class="botoes">
-            <button class="btn" type="button" id="btn-add-parte">Adicionar parte</button>
-            <button class="btn" type="button" id="btn-modelo">Usar modelo de importação</button>
+          <div id="partes">
+            <fieldset class="parte" data-papel="EXPORTADOR">
+              <legend>Exportador</legend>
+              <div class="campos nome-pais">
+                <div><label for="exp-nome">Nome</label><input id="exp-nome" data-c="nome" list="lista-cadastro" autocomplete="off"></div>
+                <div><label for="exp-pais">País</label><input id="exp-pais" data-c="pais" list="lista-paises" maxlength="2" placeholder="AE"></div>
+              </div>
+              <div class="campos"><div><label for="exp-end">Endereço</label><input id="exp-end" data-c="endereco"></div></div>
+              <div class="campos"><div><label for="exp-alias">Outros nomes (separe por ponto e vírgula)</label><input id="exp-alias" data-c="aliases"></div></div>
+            </fieldset>
+            <fieldset class="parte" data-papel="NAVIO">
+              <legend>Navio</legend>
+              <div class="campos navio">
+                <div><label for="nav-nome">Nome</label><input id="nav-nome" data-c="nome" list="lista-cadastro" autocomplete="off"></div>
+                <div><label for="nav-imo">IMO</label><input id="nav-imo" data-c="imo" inputmode="numeric" maxlength="11" placeholder="9798351"></div>
+                <div><label for="nav-band">Bandeira</label><input id="nav-band" data-c="pais" list="lista-paises" maxlength="2" placeholder="MT"></div>
+              </div>
+            </fieldset>
+            <fieldset class="parte" data-papel="SHIPPER">
+              <legend>Shipper</legend>
+              <div class="campos"><div><label for="shp-nome">Nome</label><input id="shp-nome" data-c="nome" list="lista-cadastro" autocomplete="off"></div></div>
+              <div class="campos"><div><label for="shp-end">Endereço</label><input id="shp-end" data-c="endereco"></div></div>
+            </fieldset>
+            <fieldset class="parte" data-papel="FABRICANTE">
+              <legend>Fabricante</legend>
+              <div class="campos nome-pais">
+                <div><label for="fab-nome">Nome</label><input id="fab-nome" data-c="nome" list="lista-cadastro" autocomplete="off"></div>
+                <div><label for="fab-pais">País</label><input id="fab-pais" data-c="pais" list="lista-paises" maxlength="2" placeholder="RU"></div>
+              </div>
+              <div class="campos"><div><label for="fab-end">Endereço</label><input id="fab-end" data-c="endereco"></div></div>
+            </fieldset>
           </div>
           <div class="botoes">
             <button class="btn primario" type="submit" id="btn-analisar">Analisar</button>
@@ -311,9 +340,8 @@ const SUPABASE_URL = "https://rcozmtmrjpaygboowket.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_IpuJIBN1VGP9nHFzJ3icbA_opqDaDAV"; // chave pública (dados protegidos por login + RLS)
 /* ==================================================== */
 
-const PAPEIS = ["SELLER","EXPORTADOR","SHIPPER","FABRICANTE","TRADER","NAVIO","OWNER","OPERADOR TÉCNICO","OPERADOR COMERCIAL","P&I","H&M","BANCO","OUTRO"];
+const PAPEIS = ["EXPORTADOR","NAVIO","SHIPPER","FABRICANTE","OWNER","OPERADOR","OUTRO"];
 const ESCOPOS = ["SANCOES","UBO","PLD","MIDIA"];
-const MODELO = ["SELLER","SHIPPER","FABRICANTE","NAVIO","OWNER","OPERADOR TÉCNICO","OPERADOR COMERCIAL","P&I","H&M"];
 const COR_TXT = {VERMELHO:"Vermelho", AMARELO:"Amarelo", VERDE:"Verde"};
 const COR_DESC = {
   VERMELHO:"Impeditivo até ser descartado ou resolvido",
@@ -351,7 +379,6 @@ async function inicia(){
   if (error || !ok) return mostra("tela-negado");
   $("#usuario-email").textContent = session.user.email;
   mostra("app");
-  if (!$("#partes").children.length) modelo();
   carregaFrescor(); carregaCadastroLista(); contaAlertas();
 }
 
@@ -403,32 +430,17 @@ async function carregaFrescor(){
   }).join("");
 }
 
-/* =================== PARTES DO FORMULÁRIO =================== */
-function novaParte(p = {}){
-  const div = document.createElement("div");
-  div.className = "parte";
-  div.innerHTML = `
-    <div class="parte-topo">
-      <div><label>Papel</label><select data-c="papel">${PAPEIS.map(x => `<option ${x === p.papel ? "selected" : ""}>${x}</option>`).join("")}</select></div>
-      <div><label>Nome</label><input data-c="nome" list="lista-cadastro" value="${esc(p.nome)}" placeholder="Nome como aparece no documento"></div>
-      <button type="button" class="remover" aria-label="Remover parte">×</button>
-    </div>
-    <div class="parte-mais">
-      <div><label>IMO</label><input data-c="imo" inputmode="numeric" value="${esc(p.imo)}"></div>
-      <div><label>País</label><input data-c="pais" list="lista-paises" maxlength="2" value="${esc(p.pais)}" style="text-transform:uppercase"></div>
-      <div><label>Outros nomes (;)</label><input data-c="aliases" value="${esc((p.aliases || []).join("; "))}"></div>
-      <div class="largo"><label>Endereço</label><input data-c="endereco" value="${esc(p.endereco)}"></div>
-    </div>`;
-  div.querySelector(".remover").addEventListener("click", () => div.remove());
-  const nome = div.querySelector('[data-c="nome"]');
-  nome.addEventListener("change", () => preencheDoCadastro(div, nome.value));
-  $("#partes").append(div);
-  return div;
+/* =================== PARTES DO FORMULÁRIO (blocos fixos) =================== */
+const blocoDe = papel => $(`#partes .parte[data-papel="${papel === "SELLER" ? "EXPORTADOR" : papel}"]`);
+function limpaPartes(){ $$("#partes input").forEach(i => i.value = ""); }
+function preencheParte(p){
+  const div = blocoDe(p.papel); if (!div) return;
+  const set = (k, v) => { const el = div.querySelector(`[data-c="${k}"]`); if (el) el.value = v || ""; };
+  set("nome", p.nome); set("imo", p.imo); set("pais", p.pais); set("endereco", p.endereco);
+  set("aliases", (p.aliases || []).join("; "));
 }
-function modelo(){ $("#partes").innerHTML = ""; MODELO.forEach(papel => novaParte({papel})); }
-$("#btn-add-parte").addEventListener("click", () => novaParte().querySelector('[data-c="nome"]').focus());
-$("#btn-modelo").addEventListener("click", () => { if (confirm("Substituir as partes atuais pelo modelo?")) modelo(); });
-$("#btn-limpar").addEventListener("click", () => { $("#form-analise").reset(); modelo(); $("#resultado").innerHTML = '<div class="vazio">O resultado aparece aqui.</div>'; });
+$$('#partes [data-c="nome"]').forEach(inp => inp.addEventListener("change", () => preencheDoCadastro(inp.closest(".parte"), inp.value)));
+$("#btn-limpar").addEventListener("click", () => { $("#form-analise").reset(); limpaPartes(); $("#resultado").innerHTML = '<div class="vazio">O resultado aparece aqui.</div>'; });
 
 let cadastroCache = [];
 async function carregaCadastroLista(){
@@ -445,9 +457,10 @@ function preencheDoCadastro(div, nome){
 
 function coletaAnalise(){
   const partes = $$("#partes .parte").map(div => {
-    const g = k => div.querySelector(`[data-c="${k}"]`).value.trim();
-    return { papel: g("papel"), nome: g("nome"), imo: g("imo") || null, pais: g("pais").toUpperCase() || null,
-             endereco: g("endereco") || null, aliases: g("aliases").split(";").map(s => s.trim()).filter(Boolean) };
+    const g = k => { const el = div.querySelector(`[data-c="${k}"]`); return el ? el.value.trim() : ""; };
+    return { papel: div.dataset.papel, nome: g("nome"), imo: g("imo").replace(/\D/g, "") || null,
+             pais: g("pais").toUpperCase() || null, endereco: g("endereco") || null,
+             aliases: g("aliases").split(";").map(s => s.trim()).filter(Boolean) };
   }).filter(p => p.nome || p.imo);
   return { origem: $("#op-origem").value.trim().toUpperCase() || null, ncm: $("#op-ncm").value.trim() || null,
            moeda: $("#op-moeda").value.trim().toUpperCase() || null, partes };
@@ -458,7 +471,7 @@ let ultimaEntrada = null, ultimoResultado = null;
 $("#form-analise").addEventListener("submit", async e => {
   e.preventDefault();
   const entrada = coletaAnalise();
-  if (!entrada.partes.length) return toast("Preencha pelo menos uma parte com nome ou IMO");
+  if (!entrada.partes.length) return toast("Preencha pelo menos uma parte (nome ou IMO do navio)");
   const btn = $("#btn-analisar"); btn.disabled = true; btn.textContent = "Analisando…";
   const { data, error } = await sb.rpc("avaliar_analise", { p: entrada });
   btn.disabled = false; btn.textContent = "Analisar";
@@ -480,7 +493,7 @@ function renderResultado(alvo, r, {salvar=false, referencia=null} = {}){
     <h2 style="margin-top:18px">Partes</h2>
     ${partes.map((p, i) => `
       <div class="res-parte ${p.cor}">
-        <div class="res-cab"><div><span class="nome">${esc(p.nome || "IMO " + p.imo)}</span><span class="papel">${esc(p.papel || "")}${p.pais ? " · " + esc(p.pais) : ""}${p.imo ? " · IMO " + esc(p.imo) : ""}</span></div>
+        <div class="res-cab"><div><span class="nome">${esc(p.nome || "IMO " + p.imo)}</span><span class="papel">${esc(p.papel || "")}${p.pais ? (p.papel === "NAVIO" ? " · Bandeira " : " · ") + esc(p.pais) : ""}${p.imo ? " · IMO " + esc(p.imo) : ""}</span></div>
           <span class="selo ${p.cor}">${COR_TXT[p.cor]}</span></div>
         <ul class="motivos">${(p.motivos || []).map(m => `<li class="${m.nivel}">${esc(m.texto)}</li>`).join("")}</ul>
         ${p.hits?.length ? `<details><summary>${p.hits.length} ocorrência(s) nas listas</summary><div class="tabela-wrap"><table>
@@ -518,7 +531,7 @@ function resumoTexto(r, ref){
   if ((r.operacao || []).length) { l.push("Operação:"); r.operacao.forEach(m => l.push(`  [${m.nivel}] ${m.texto}`)); l.push(""); }
   l.push("Partes:");
   (r.partes || []).forEach(p => {
-    l.push(`- ${p.papel || "-"}: ${p.nome || ""}${p.pais ? " (" + p.pais + ")" : ""}${p.imo ? " IMO " + p.imo : ""} → ${COR_TXT[p.cor].toUpperCase()}`);
+    l.push(`- ${p.papel || "-"}: ${p.nome || ""}${p.pais ? (p.papel === "NAVIO" ? " (bandeira " + p.pais + ")" : " (" + p.pais + ")") : ""}${p.imo ? " IMO " + p.imo : ""} → ${COR_TXT[p.cor].toUpperCase()}`);
     (p.motivos || []).filter(m => m.nivel !== "INFO").forEach(m => l.push(`    • ${m.texto}`));
   });
   l.push("", "Pré-análise automática. Não substitui o parecer do Compliance.");
@@ -660,7 +673,7 @@ async function carregaHistorico(){
     abreAba("analise");
     $("#op-ref").value = a.referencia || ""; $("#op-origem").value = a.origem_mercadoria || "";
     $("#op-ncm").value = a.ncm || ""; $("#op-moeda").value = a.moeda || "";
-    $("#partes").innerHTML = ""; (a.entrada.partes || []).forEach(p => novaParte(p));
+    limpaPartes(); (a.entrada.partes || []).forEach(p => preencheParte(p));
     ultimaEntrada = a.entrada;
     renderResultado($("#resultado"), a.resultado, {referencia: a.referencia});
     $("#resultado").insertAdjacentHTML("afterbegin", `<div class="msg ok">Resultado salvo em ${dataHoraBR(a.criado_em)}. Clique em Analisar para rodar de novo com as listas de hoje.</div>`);
